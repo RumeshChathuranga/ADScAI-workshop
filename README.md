@@ -15,15 +15,15 @@ Then open http://localhost:3000 — you'll be redirected to `/menu`.
 
 ## Scripts
 
-| Command | What it does |
-|---|---|
-| `npm run dev` | Start Next.js on http://localhost:3000 |
-| `npm run lint` | Lint the codebase (includes the custom `require-auth-wrapper` rule) |
-| `npm test` | Run unit tests with Vitest |
-| `npm run test:integration` | Run integration tests |
-| `npx tsc --noEmit` | Type-check without emitting |
-| `npm run db:migrate` | Apply Prisma migrations to the SQLite db |
-| `npm run db:seed` | Seed the db with menu items + sample orders |
+| Command                    | What it does                                                        |
+| -------------------------- | ------------------------------------------------------------------- |
+| `npm run dev`              | Start Next.js on http://localhost:3000                              |
+| `npm run lint`             | Lint the codebase (includes the custom `require-auth-wrapper` rule) |
+| `npm test`                 | Run unit tests with Vitest                                          |
+| `npm run test:integration` | Run integration tests                                               |
+| `npx tsc --noEmit`         | Type-check without emitting                                         |
+| `npm run db:migrate`       | Apply Prisma migrations to the SQLite db                            |
+| `npm run db:seed`          | Seed the db with menu items + sample orders                         |
 
 ## Codebase patterns
 
@@ -37,7 +37,7 @@ See `CLAUDE.md` for the full convention guide.
 
 The `/workshop/` directory contains everything used in the live workshop:
 
-- `workshop/inputs/feedback.md` — raw user feedback students synthesize in §5
-- `workshop/spec.md` — placeholder students fill in during §5
+- `workshop/inputs/feedback.md` — raw user feedback students synthesize
+- `workshop/spec.md` — placeholder students fill in
 
 If you're cloning to learn the codebase, ignore `/workshop/`.

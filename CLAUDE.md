@@ -30,7 +30,3 @@ This file is read at the start of every Claude Code session in this repo.
 ## Commands
 
 - `/pr` — the only sanctioned way to open a PR. Runs lint, typecheck, tests, the simplify pass, the comprehensive review, FEATURES.md update, and commit using a P3 naming convention.
-
-## Workshop notes
-
-- Workshop materials live in `/workshop/`. Don't open `feedback.md` until §5.
