@@ -52,11 +52,41 @@ export function MenuClient({ items }: { items: MenuItem[] }) {
   const [slotsLoading, setSlotsLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/pickup-slots")
-      .then((r) => r.json())
-      .then(setSlots)
-      .catch(() => setSlots([]))
-      .finally(() => setSlotsLoading(false));
+    let cancelled = false;
+
+    async function loadSlots() {
+      try {
+        const r = await fetch("/api/pickup-slots");
+        const data = await r.json();
+
+        if (!r.ok) {
+          throw new Error("Failed to load pickup slots.");
+        }
+
+        if (!Array.isArray(data)) {
+          throw new Error("Received an invalid pickup slots response.");
+        }
+
+        if (!cancelled) {
+          setSlots(data);
+        }
+      } catch {
+        if (!cancelled) {
+          setSlots([]);
+          setError("Unable to load pickup slots. Please try again later.");
+        }
+      } finally {
+        if (!cancelled) {
+          setSlotsLoading(false);
+        }
+      }
+    }
+
+    void loadSlots();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // ── Menu grouping ────────────────────────────────────────────────────────
