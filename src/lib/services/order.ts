@@ -27,18 +27,30 @@ export class OrderService {
       where: { id: { in: items.map((i) => i.menuItemId) }, available: true },
     });
 
+    const menuItemsById = new Map(menuItems.map((menuItem) => [menuItem.id, menuItem]));
+
+    const hasInvalidQuantity = items.some(
+      (item) => !Number.isInteger(item.quantity) || item.quantity <= 0,
+    );
+    const hasUnavailableMenuItem = items.some((item) => !menuItemsById.has(item.menuItemId));
+
+    if (hasInvalidQuantity || hasUnavailableMenuItem) {
+      const error = new Error("Invalid order items");
+      (error as Error & { status: number }).status = 400;
+      throw error;
+    }
+
     const orderItems = items.map((item) => {
-      const m = menuItems.find((mi) => mi.id === item.menuItemId);
+      const m = menuItemsById.get(item.menuItemId)!;
       return {
         menuItemId: item.menuItemId,
         quantity: item.quantity,
-        unitPriceCents: m?.priceCents ?? 0,
+        unitPriceCents: m.priceCents,
       };
     });
 
     const totalCents = items.reduce((sum, item) => {
-      const m = menuItems.find((mi) => mi.id === item.menuItemId);
-      if (!m) return sum;
+      const m = menuItemsById.get(item.menuItemId)!;
       return sum + m.priceCents * item.quantity;
     }, 0);
 
