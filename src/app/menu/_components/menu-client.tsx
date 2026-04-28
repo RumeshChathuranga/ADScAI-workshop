@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/auth/client";
 
@@ -11,6 +11,17 @@ type MenuItem = {
   priceCents: number;
   category: string;
   available: boolean;
+};
+
+type SlotWithAvailability = {
+  id: string | null;
+  label: string;
+  startTime: string;
+  endTime: string;
+  capacity: number;
+  orderCount: number;
+  remaining: number;
+  isFull: boolean;
 };
 
 type Cart = Record<string, number>;
@@ -32,8 +43,53 @@ export function MenuClient({ items }: { items: MenuItem[] }) {
   const [cart, setCart] = useState<Cart>({});
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successSlotLabel, setSuccessSlotLabel] = useState<string | null>(null);
   const [successId, setSuccessId] = useState<string | null>(null);
 
+  // ── Slot picker state ────────────────────────────────────────────────────
+  const [slots, setSlots] = useState<SlotWithAvailability[]>([]);
+  const [selectedSlot, setSelectedSlot] = useState<SlotWithAvailability | null>(null);
+  const [slotsLoading, setSlotsLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadSlots() {
+      try {
+        const r = await fetch("/api/pickup-slots");
+        const data = await r.json();
+
+        if (!r.ok) {
+          throw new Error("Failed to load pickup slots.");
+        }
+
+        if (!Array.isArray(data)) {
+          throw new Error("Received an invalid pickup slots response.");
+        }
+
+        if (!cancelled) {
+          setSlots(data);
+        }
+      } catch {
+        if (!cancelled) {
+          setSlots([]);
+          setError("Unable to load pickup slots. Please try again later.");
+        }
+      } finally {
+        if (!cancelled) {
+          setSlotsLoading(false);
+        }
+      }
+    }
+
+    void loadSlots();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // ── Menu grouping ────────────────────────────────────────────────────────
   const byCategory = useMemo(() => {
     return items.reduce<Record<string, MenuItem[]>>((acc, item) => {
       (acc[item.category] ??= []).push(item);
@@ -49,6 +105,7 @@ export function MenuClient({ items }: { items: MenuItem[] }) {
 
   function setQty(id: string, qty: number) {
     setSuccessId(null);
+    setSuccessSlotLabel(null);
     setCart((prev) => {
       const next = { ...prev };
       if (qty <= 0) delete next[id];
@@ -69,6 +126,7 @@ export function MenuClient({ items }: { items: MenuItem[] }) {
             menuItemId,
             quantity,
           })),
+          pickupSlotStartTime: selectedSlot?.startTime ?? undefined,
         }),
       });
       if (!res.ok) {
@@ -78,6 +136,10 @@ export function MenuClient({ items }: { items: MenuItem[] }) {
       const order = await res.json();
       setCart({});
       setSuccessId(order.id);
+      setSuccessSlotLabel(
+        order.pickupSlot?.label ?? selectedSlot?.label ?? null,
+      );
+      setSelectedSlot(null);
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
@@ -87,11 +149,12 @@ export function MenuClient({ items }: { items: MenuItem[] }) {
   }
 
   const loggedIn = !!session?.user;
+  const canOrder = totalCount > 0 && !!selectedSlot;
 
   return (
     <section>
       <div style={{ marginBottom: "2rem" }}>
-        <h1 style={{ fontSize: "2rem", margin: "0 0 0.4rem" }}>Today's menu</h1>
+        <h1 style={{ fontSize: "2rem", margin: "0 0 0.4rem" }}>Today&apos;s menu</h1>
         <p style={{ color: "var(--muted)", margin: 0, fontSize: "1rem" }}>
           Pre-order now — pick it up hot and skip the line.
         </p>
@@ -114,10 +177,17 @@ export function MenuClient({ items }: { items: MenuItem[] }) {
           }}
         >
           <span>
-            <strong>Order placed.</strong> We'll have it ready shortly.
+            <strong>Order placed.</strong>{" "}
+            {successSlotLabel
+              ? `Pick up at ${successSlotLabel}. ✓`
+              : "We'll have it ready shortly."}
           </span>
-          <a href="/orders" className="btn btn-secondary" style={{ padding: "0.35rem 0.75rem", fontSize: "0.8rem" }}>
-            View orders
+          <a
+            href="/orders"
+            className="btn btn-secondary"
+            style={{ padding: "0.35rem 0.75rem", fontSize: "0.8rem" }}
+          >
+            View orders →
           </a>
         </div>
       )}
@@ -245,6 +315,117 @@ export function MenuClient({ items }: { items: MenuItem[] }) {
         </div>
       ))}
 
+      {/* ── Slot picker ─────────────────────────────────────────────────── */}
+      {loggedIn && (
+        <div
+          className="card"
+          style={{
+            padding: "1.1rem 1.25rem",
+            marginBottom: "1rem",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              marginBottom: "0.85rem",
+            }}
+          >
+            <span aria-hidden style={{ fontSize: "1.1rem" }}>📅</span>
+            <span style={{ fontWeight: 700, fontSize: "0.95rem" }}>Choose your pickup time</span>
+            {selectedSlot && (
+              <span
+                style={{
+                  marginLeft: "auto",
+                  fontSize: "0.8rem",
+                  color: "var(--brand)",
+                  fontWeight: 600,
+                }}
+              >
+                {selectedSlot.label}
+              </span>
+            )}
+          </div>
+
+          {slotsLoading ? (
+            <p style={{ fontSize: "0.85rem", color: "var(--muted)", margin: 0 }}>
+              Loading available slots…
+            </p>
+          ) : slots.length === 0 ? (
+            <p style={{ fontSize: "0.85rem", color: "var(--muted)", margin: 0 }}>
+              No slots available today.
+            </p>
+          ) : (
+            <div
+              style={{
+                display: "flex",
+                gap: "0.5rem",
+                overflowX: "auto",
+                paddingBottom: "0.25rem",
+                // Hide scrollbar on webkit but still scrollable
+                scrollbarWidth: "none",
+              }}
+            >
+              {slots.map((slot) => {
+                const isSelected = selectedSlot?.startTime === slot.startTime;
+                return (
+                  <button
+                    key={slot.startTime}
+                    type="button"
+                    disabled={slot.isFull}
+                    onClick={() => setSelectedSlot(isSelected ? null : slot)}
+                    style={{
+                      flexShrink: 0,
+                      border: isSelected
+                        ? "2px solid var(--brand)"
+                        : "1.5px solid var(--border-strong)",
+                      borderRadius: "999px",
+                      padding: "0.4rem 0.9rem",
+                      fontSize: "0.82rem",
+                      fontWeight: 600,
+                      background: isSelected ? "var(--brand-soft)" : "var(--card)",
+                      color: isSelected
+                        ? "var(--brand)"
+                        : slot.isFull
+                          ? "var(--muted)"
+                          : "var(--text)",
+                      cursor: slot.isFull ? "not-allowed" : "pointer",
+                      opacity: slot.isFull ? 0.55 : 1,
+                      transition: "border-color 120ms ease, background 120ms ease, color 120ms ease",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: "0.15rem",
+                      lineHeight: 1.2,
+                      minWidth: "5.5rem",
+                    }}
+                    aria-pressed={isSelected}
+                    aria-label={`${slot.label} — ${slot.isFull ? "Full" : `${slot.remaining} left`}`}
+                  >
+                    <span>{slot.label}</span>
+                    <span
+                      style={{
+                        fontSize: "0.72rem",
+                        fontWeight: 500,
+                        color: slot.isFull
+                          ? "var(--danger)"
+                          : slot.remaining <= 2
+                            ? "var(--warning)"
+                            : "var(--muted)",
+                      }}
+                    >
+                      {slot.isFull ? "Full ✗" : `${slot.remaining} left`}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Sticky cart bar ──────────────────────────────────────────────── */}
       {totalCount > 0 && (
         <div
           style={{
@@ -285,9 +466,24 @@ export function MenuClient({ items }: { items: MenuItem[] }) {
               <strong style={{ fontVariantNumeric: "tabular-nums", fontSize: "1.05rem" }}>
                 {formatPrice(totalCents)}
               </strong>
+              {selectedSlot && (
+                <div style={{ fontSize: "0.72rem", opacity: 0.75, marginTop: 1 }}>
+                  Pickup: {selectedSlot.label}
+                </div>
+              )}
+              {!selectedSlot && loggedIn && (
+                <div style={{ fontSize: "0.72rem", opacity: 0.6, marginTop: 1, color: "#fbbf24" }}>
+                  Select a pickup time ↑
+                </div>
+              )}
             </div>
           </div>
-          <button type="button" onClick={placeOrder} disabled={submitting} className="btn btn-light">
+          <button
+            type="button"
+            onClick={placeOrder}
+            disabled={submitting || !canOrder}
+            className="btn btn-light"
+          >
             {submitting ? "Placing…" : "Place order →"}
           </button>
         </div>

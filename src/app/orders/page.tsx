@@ -92,6 +92,21 @@ export default async function OrdersPage() {
                 <div style={{ fontSize: "0.8rem", color: "var(--muted)", marginTop: 3 }}>
                   {formatDate(order.createdAt)}
                 </div>
+                {order.pickupSlot && (
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "0.35rem",
+                      marginTop: "0.45rem",
+                      fontSize: "0.82rem",
+                      color: "var(--brand)",
+                      fontWeight: 600,
+                    }}
+                  >
+                    🕐 Pickup: {order.pickupSlot.label}
+                  </div>
+                )}
               </div>
               <div style={{ textAlign: "right" }}>
                 <div style={{ fontSize: "0.75rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
