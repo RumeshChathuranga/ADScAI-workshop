@@ -3,8 +3,12 @@ import type { PickupSlot } from "@prisma/client";
 
 // ─── Configuration constants ─────────────────────────────────────────────────
 const SLOT_DURATION_MINUTES = 15;
+const getConfiguredHour = (envValue: string | undefined, defaultValue: number): number => {
+  const parsed = Number.parseInt(envValue ?? "", 10);
+  return Number.isInteger(parsed) ? parsed : defaultValue;
+};
 export const OPEN_HOUR = 10; // 10:00 local time
-export const CLOSE_HOUR = 23; // Extended from 14 to 23 for testing
+export const CLOSE_HOUR = getConfiguredHour(process.env.PICKUP_CLOSE_HOUR, 14); // 14:00 local time by default; override via env in tests/dev
 export const CAPACITY_DEFAULT = 10;
 const MIN_LEAD_MINUTES = 15;
 
